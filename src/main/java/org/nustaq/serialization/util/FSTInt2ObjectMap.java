@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package org.nustaq.serialization.util;
+import java.util.Map;
 
 public class FSTInt2ObjectMap<V> {
 
@@ -47,42 +48,47 @@ public class FSTInt2ObjectMap<V> {
         putHash(key, value, hash, this);
     }
 
-    final void putHash(int key, V value, int hash, FSTInt2ObjectMap<V> parent) {
-        if (mNumberOfElements * GROWFAC > mKeys.length) {
-            if (parent != null) {
-                if ((parent.mNumberOfElements + mNumberOfElements) * GROWFAC > parent.mKeys.length) {
-                    parent.resize(parent.mKeys.length * GROWFAC);
-                    parent.put(key, value);
-                    return;
+    final private static <V> void putHash(int key, V value, int hash, FSTInt2ObjectMap<V> current, FSTInt2ObjectMap<V> parent) {
+        while(true){
+            if (current.mNumberOfElements * GROWFAC > current.mKeys.length) {
+                if (parent != null) {
+                    if ((parent.mNumberOfElements + current.mNumberOfElements) * GROWFAC > parent.mKeys.length) {
+                        parent.resize(parent.mKeys.length * GROWFAC);
+                        current = parent;
+                        continue;
+                    } else {
+                        current.resize(current.mKeys.length * GROWFAC);
+                    }
                 } else {
-                    resize(mKeys.length * GROWFAC);
+                    current.resize(current.mKeys.length * GROWFAC);
                 }
-            } else {
-                resize(mKeys.length * GROWFAC);
             }
-        }
 
-        int idx = hash % mKeys.length;
+            int idx = hash % current.mKeys.length;
 
-        if (mKeys[idx] == 0 && mValues[idx] == null) // new
-        {
-            mNumberOfElements++;
-            mValues[idx] = value;
-            mKeys[idx] = key;
-        } else if (mKeys[idx] == key)  // overwrite
-        {
-            mValues[idx] = value;
-        } else {
-            putNext(hash, key, value);
+            if (current.mKeys[idx] == 0 && current.mValues[idx] == null) // new
+            {
+                current.mNumberOfElements++;
+                current.mValues[idx] = value;
+                current.mKeys[idx] = key;
+                return;
+            } else if (current.mKeys[idx] == key)  // overwrite
+            {
+                current.mValues[idx] = value;
+                return;
+            } else {
+                if (current.next == null) {
+                    int newSiz = current.mNumberOfElements / 3;
+                    current.next = new FSTInt2ObjectMap<V>(newSiz);
+                }
+                parent = current;
+                current = current.next;
+            }
         }
     }
 
-    final void putNext(int hash, int key, V value) {
-        if (next == null) {
-            int newSiz = mNumberOfElements / 3;
-            next = new FSTInt2ObjectMap<V>(newSiz);
-        }
-        next.putHash(key, value, hash, this);
+    final void putHash(int key, V value, int hash, FSTInt2ObjectMap<V> parent) {
+        putHash(key, value, hash,this, parent);
     }
 
     final public V get(int key) {
